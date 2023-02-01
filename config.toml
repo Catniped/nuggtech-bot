@@ -1,0 +1,12 @@
+broadcastserver = false
+servername = ""
+hostname = ""
+username = ""
+password = ""
+port = 
+botid = 
+bottoken = ""
+chanid = 
+outtopic = "exampleserver1/1"
+intopics = ["exampleserver2/1", "exampleserver3/1"]
+status = ""
