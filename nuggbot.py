@@ -1,8 +1,24 @@
-import discord, typing, time, asyncio, mqtt_client
+import discord, typing, time, asyncio
 from discord import *
+import time, nuggbot, asyncio
+import paho.mqtt.client as paho
+from paho import mqtt
+import asyncio_mqtt as aiomqtt
+import paho.mqtt as mqtt
 
+hostname = ""
+username = ""
+password = ""
+botid = 
+bottoken = ""
+chanid = 
+outtopic = 
+intopic = 
 
-if __name__ == "__main__":
+asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+tls_params = aiomqtt.TLSParameters(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
+
+async def main():
     class aclient(discord.Client):
         def __init__(self):
             super().__init__(intents=discord.Intents.all())
@@ -18,23 +34,35 @@ if __name__ == "__main__":
                 await client.change_presence(status=discord.Status.online, activity=activity)
                 print(f"Logged in as {self.user}")
                 global chan
-                chan = client.get_channel(751052412957229138)
+                chan = client.get_channel(chanid)
 
     client = aclient()
     tree = app_commands.CommandTree(client)
-
-    @tree.command(name = "startbridge", description = "Starts the cross discord chatbridge.")
-    async def self(interaction: discord.Interaction):
-        await interaction.response.defer()
-        await asyncio.create_subprocess_shell(f"py mqtt_client.py")
-        embedVar = discord.Embed(title=f"started", color=0xBD783C)
-        await interaction.followup.send(embed=embedVar)
-
+    
     @client.event
     async def on_message(message: discord.Message):
-        await mqtt_client.publish_mqtt(message.content)
+        if message.channel == chan:
+            if message.author.id != botid:
+                async with aiomqtt.Client(hostname=hostname, port=8883, username=username, password=password, client_id="", protocol=paho.MQTTv5, tls_params=tls_params) as c:
+                    reply = None
+                    reply = message.reference
+                    if reply is not None:
+                        message2 = reply.resolved
+                        await c.publish(outtopic, payload=f"{message.author.name}: {message.content} -> {message2.author.name}: {message2.content}")
+                    else:
+                        await c.publish(outtopic, payload=f"{message.author.name}: {message.content}")
 
-    client.run("1")
+    async def subscriber():
+        async with aiomqtt.Client(hostname=hostname, port=8883, username=username, password=password, client_id="", protocol=paho.MQTTv5, tls_params=tls_params) as c:
+            async with c.messages() as messages:
+                await c.subscribe(intopic)
+                async for message in messages:
+                    msg = str(message.payload)
+                    if msg.startswith("b\'@everyone"):
+                       continue
+                    else:
+                        await chan.send(msg.strip("b\'"))
 
-async def publish_chan(msg: str):
-    await chan.send(msg)
+    await asyncio.gather(asyncio.create_task(subscriber()), client.start(bottoken))
+
+asyncio.run(main())
