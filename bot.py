@@ -66,6 +66,8 @@ async def main():
                     msg = str(message.payload.decode("utf-8"))
                     if "@everyone" in msg:
                        continue
+                    elif "@here" in msg:
+                       continue
                     else:
                         await chan.send(msg)
 
