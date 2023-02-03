@@ -26,3 +26,7 @@ Quick refference table:
 | status | The status the bot will display on discord. |
 
 Now, start the bot.py script. If the config was filled out properly, the bot should connect to the mqtt broker and start functioning!
+
+*Note for Linux/macOS users: please remove the 13th line before running (`asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())`).*
+
+*Note: the python launcher command on your system might be different than whats used by the bot by default. If this is true for you, search for all instances of `py bot.py` inside the `bot.py` file, and replace them accordingly*

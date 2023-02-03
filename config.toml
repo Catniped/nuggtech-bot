@@ -1,12 +1,19 @@
 broadcastserver = false
-servername = ""
-hostname = ""
-username = ""
-password = ""
-port = 
+servername = "ExampleServer1"
+hostname = "exampleip1.ip"
+username = "exampleusername"
+password = "examplepassword"
+port = 8883
 botid = 
 bottoken = ""
 chanid = 
 outtopic = "exampleserver1/1"
-intopics = ["exampleserver2/1", "exampleserver3/1"]
-status = ""
+intopics = [
+    "exampleserver2/1",
+    "exampleserver3/1",
+]
+status = "examplestatus"
+hostnameindex = [
+    "exampleip1.ip",
+    "exampleip2.ip",
+]
