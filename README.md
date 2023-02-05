@@ -1,3 +1,8 @@
+# nuggtech-bot
+A bot that can link many different discord channels together!
+
+![Example](example.png)
+
 **Quickstart guide**
 
 Clone the repo onto your host.

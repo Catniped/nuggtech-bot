@@ -1,5 +1,5 @@
-import discord, asyncio, tomllib, os, tomli_w
-from discord import *
+import discord, asyncio, tomllib, os, tomli_w, json
+from discord import * 
 import paho.mqtt.client as paho
 from paho import mqtt
 import asyncio_mqtt as aiomqtt
@@ -10,7 +10,9 @@ with open("config.toml", "rb") as f:
 servername = config["servername"]
 hostname = config["hostname"]
 
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+discord.utils.setup_logging()
+
+# asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy()) #remove if on macos/linux
 tls_params = aiomqtt.TLSParameters(tls_version=mqtt.client.ssl.PROTOCOL_TLS)
 
 async def main():
@@ -30,6 +32,13 @@ async def main():
                 print(f"Logged in as {self.user}")
                 global chan
                 chan = client.get_channel(config["chanid"])
+                global hook
+                hook = None
+                for x in await chan.webhooks():
+                    if x.user.id == config["botid"]:
+                        hook = x
+                if hook is None:
+                    hook = await chan.create_webhook(name="ChatLink")
                 await chan.send(embed=discord.Embed(title=f"Chatlink restored!", color=0x6CF096))
 
     client = aclient()
@@ -43,7 +52,7 @@ async def main():
         with open("config.toml", "wb") as f:
             tomli_w.dump(config, f)
         await interaction.followup.send(embed=discord.Embed(title=f"Switching to server `{serverindex}`...", color=0x806CF0))
-        os.system("py bot.py")
+        await asyncio.create_subprocess_shell("python bot.py")
 
     @tree.command(name = "broadcastserver", description = "Changes whether your server name will be broadcasted to the broker or not.")
     @app_commands.default_permissions(administrator = True)
@@ -57,31 +66,50 @@ async def main():
     @tree.command(name = "reload", description = "Restarts the bot.")
     @app_commands.default_permissions(administrator = True)
     async def self(interaction: discord.Interaction):
-        await interaction.followup.send(embed=discord.Embed(title=f"Restarting...", color=0xF06CF0))
-        os.system("py bot.py")
+        await interaction.response.send_message(embed=discord.Embed(title="Restarting...", color=0xF06CF0))
+        await asyncio.create_subprocess_shell("python bot.py")
 
     @client.event
     async def on_message(message: discord.Message):
         if message.channel == chan:
             if message.author.id != config["botid"]:
-                async with aiomqtt.Client(hostname=hostname, port=config["port"], username=config["username"], password=config["password"], client_id="", protocol=paho.MQTTv5, tls_params=tls_params) as c:
-                    reply = None
-                    reply = message.reference 
-                    msg = message.content + " "
-                    for x in message.attachments:
-                        msg += x.url
-                    if config["broadcastserver"] is False:
+                if message.webhook_id is None:
+                    async with aiomqtt.Client(hostname=hostname, port=config["port"], username=config["username"], password=config["password"], client_id="", protocol=paho.MQTTv5, tls_params=tls_params) as c:
+                        reply = None
+                        reply = message.reference 
+                        msg = message.content + " "
+                        for x in message.attachments:
+                            msg += x.url + " "
+                        if config["broadcastserver"] is False:
+                            servername = None
+                        else:
+                            servername = config["servername"]
                         if reply is not None:
                             message2 = reply.resolved
-                            await c.publish(config["outtopic"], payload=f"> {message2.author.name}: {message2.content}\n{message.author.name}: {msg}")
-                        else:
-                            await c.publish(config["outtopic"], payload=f"{message.author.name}: {msg}")
-                    else:
-                        if reply is not None:
-                            message2 = reply.resolved
-                            await c.publish(config["outtopic"], payload=f"[{servername}] > {message2.author.name}: {message2.content}\n{message.author.name}: {msg}")
-                        else:
-                            await c.publish(config["outtopic"], payload=f"[{servername}] {message.author.name}: {msg}")
+                            data = {
+                                "message1": {
+                                    "servername": servername,
+                                    "avatar": message.author.avatar.url,
+                                    "authorname": message.author.name,
+                                    "messagecontent": msg},
+
+                                "message2": {
+                                    "servername": servername,
+                                    "avatar": message2.author.avatar.url,
+                                    "authorname": message2.author.name,
+                                    "messagecontent": message2.clean_content}
+                            }
+                        else: 
+                            data = {
+                                "message1": {
+                                    "servername": servername,
+                                    "avatar": message.author.avatar.url,
+                                    "authorname": message.author.name,
+                                    "messagecontent": msg},
+
+                                "message2": None
+                            }
+                        await c.publish(config["outtopic"], payload=json.dumps(data))
 
     async def subscriber():
         async with aiomqtt.Client(hostname=hostname, port=config["port"], username=config["username"], password=config["password"], client_id="", protocol=paho.MQTTv5, tls_params=tls_params) as c:
@@ -89,14 +117,17 @@ async def main():
                 for topic in config["intopics"]:
                     await c.subscribe(topic)
                 async for message in messages:
-                    msg = str(message.payload.decode("utf-8"))
-                    if "@everyone" in msg:
-                       continue
-                    elif "@here" in msg:
-                       continue
+                    msg = json.loads(str(message.payload.decode("utf-8")))
+                    if msg['message1']['servername'] is not None:
+                        name = f"[{msg['message1']['servername']}] " + msg['message1']['authorname']
                     else:
-                        await chan.send(msg)
-
+                        name = msg['message1']['authorname']
+                    if msg["message1"]["servername"] != servername:
+                            if msg["message2"] is not None:
+                                    await hook.send(content=f"> {msg['message2']['authorname']}: {msg['message2']['messagecontent']}\n{msg['message1']['messagecontent']}", username=name, avatar_url=msg['message1']['avatar'])
+                            else:
+                                await hook.send(content=f"{msg['message1']['messagecontent']}", username=name, avatar_url=msg['message1']['avatar'])
+                
     await asyncio.gather(asyncio.create_task(subscriber()), client.start(config["bottoken"]))
 
 asyncio.run(main())
