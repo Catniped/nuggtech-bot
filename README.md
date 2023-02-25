@@ -1,7 +1,7 @@
 # nuggtech-bot
 A bot that can link many different discord channels together!
 
-![Example](example.png)
+![Example](example.gif)
 
 **Quickstart guide**
 
