@@ -1,5 +1,5 @@
-import discord, asyncio, tomllib, os, tomli_w, json
-from discord import * 
+import discord, asyncio, tomllib, tomli_w, json
+from discord import app_commands
 import paho.mqtt.client as paho
 from paho import mqtt
 import asyncio_mqtt as aiomqtt
@@ -123,8 +123,9 @@ async def main():
                     else:
                         name = msg['message1']['authorname']
                     if msg["message1"]["servername"] != servername:
+                        if not msg["message1"]["messagecontent"].isspace():
                             if msg["message2"] is not None:
-                                    await hook.send(content=f"> {msg['message2']['authorname']}: {msg['message2']['messagecontent']}\n{msg['message1']['messagecontent']}", username=name, avatar_url=msg['message1']['avatar'])
+                                await hook.send(content=f"> {msg['message2']['authorname']}: {msg['message2']['messagecontent']}\n{msg['message1']['messagecontent']}", username=name, avatar_url=msg['message1']['avatar'])
                             else:
                                 await hook.send(content=f"{msg['message1']['messagecontent']}", username=name, avatar_url=msg['message1']['avatar'])
                 
